@@ -4,9 +4,14 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["vite/client"],
+    // "node" is required by vite.config.ts (node:path, __dirname). Declared
+    // explicitly so typechecking does not depend on a stray @types/node in an
+    // ancestor directory — that difference passes locally and fails in CI.
+    "types": ["vite/client", "node"],
 
     "strict": true,
+    // Windows dev machine, Linux CI — catch casing mismatches before CI does
+    "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
