@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>設計模式實踐 — TypeScript</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="dev-banner">⚠ DEV 預覽環境 — 這不是正式站，內容來自 dev 分支</div>
+    <main>
+      <h1>設計模式實踐</h1>
+      <p class="lede">
+        GoF 23 個設計模式的 TypeScript 實作。每個 pattern 一頁：先講<strong>不用它會痛在哪</strong>，
+        再看用了之後，最後一定會寫<strong>什麼時候不要用</strong>。所有實作都有單元測試。
+      </p>
+
+      <div class="callout">
+        <p>
+          <strong>寫在前面。</strong>這 23 個模式出自 1994 年的書，當時的主要語言是 C++ 與 Smalltalk。
+          在 TypeScript 裡，其中好幾個已經是語言內建功能或反模式。
+          這個站不會假裝 23 個都同等重要——用不到的會直說用不到，並解釋<strong>為什麼在現代語言裡消失了</strong>。
+        </p>
+      </div>
+
+      <h2>行為型 <span class="tag">11</span></h2>
+      <ul class="catalog">
+        <li>
+          <a href="./command.html">
+            <strong>Command ✅</strong>
+            <span class="why">把操作包成物件 → undo/redo、佇列、巨集。含可互動的繪圖板 demo。</span>
+          </a>
+        </li>
+        <li>
+          <span>
+            <strong>Observer</strong>
+            <span class="why">狀態變動通知多方。理解它就理解了整個前端響應式系統的底層。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>State</strong>
+            <span class="why">用物件取代到處散落的 if (status === ...)。實務上非常常用。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Strategy</strong>
+            <span class="why">演算法可替換。在 TS 裡多半退化成「傳一個函式」——會解釋何時仍值得開 class。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Chain of Responsibility</strong>
+            <span class="why">請求沿著鏈傳遞。middleware 就是它。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Template Method</strong>
+            <span class="why">骨架固定、細節交給子類。繼承的代表作，也是最容易被組合取代的一個。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Mediator</strong>
+            <span class="why">多對多溝通收斂成星狀。用過頭會生出上帝物件。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Memento</strong>
+            <span class="why">狀態快照。會直接跟 Command 對照：什麼情況下快照反而比較好。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Visitor</strong>
+            <span class="why">對物件結構加新操作而不改結構。TS 的 discriminated union + switch 通常更好。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Iterator ⚠</strong>
+            <span class="why">語言內建。TS 有 Symbol.iterator 與 generator，寫這個 class 沒有意義——會示範內建做法。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Interpreter ⚠</strong>
+            <span class="why">十年寫不到一次。會做一個極小的運算式求值器帶過。</span>
+          </span>
+        </li>
+      </ul>
+
+      <h2>結構型 <span class="tag">7</span></h2>
+      <ul class="catalog">
+        <li>
+          <span>
+            <strong>Adapter</strong>
+            <span class="why">介面不合就包一層。接第三方 API 時天天用到。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Decorator</strong>
+            <span class="why">不動原物件加功能。注意跟 TS 的 decorator 語法是兩回事。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Facade</strong>
+            <span class="why">把一坨複雜子系統收成一個好用介面。最沒有爭議、最常無意識使用的一個。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Proxy</strong>
+            <span class="why">代理存取：延遲載入、快取、權限。JS 有原生 Proxy 可以對照。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Composite</strong>
+            <span class="why">樹狀結構中「單一」與「群組」同介面。UI 元件樹的本質。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Bridge</strong>
+            <span class="why">抽象與實作各自獨立變化。最常被跟 Strategy 搞混，會並排比較。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Flyweight ⚠</strong>
+            <span class="why">共用大量細小物件省記憶體。現代場景稀少，但講清楚它解決的是什麼問題。</span>
+          </span>
+        </li>
+      </ul>
+
+      <h2>創建型 <span class="tag">5</span></h2>
+      <ul class="catalog">
+        <li>
+          <span>
+            <strong>Builder</strong>
+            <span class="why">一步步組出複雜物件。TS 有物件字面量與具名參數，會比較兩者取捨。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Factory Method</strong>
+            <span class="why">由子類決定生出哪一種。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Abstract Factory</strong>
+            <span class="why">生出一整組相關物件。跟 Factory Method 的差別是常見面試題。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Prototype</strong>
+            <span class="why">用複製取代 new。JS 的原型鏈與 structuredClone 讓它幾乎不用手寫。</span>
+          </span>
+        </li>
+        <li>
+          <span>
+            <strong>Singleton ⚠</strong>
+            <span class="why">在 ES module 裡天然成立，而且多數情況該避免——會解釋它為何被歸為反模式。</span>
+          </span>
+        </li>
+      </ul>
+
+      <h2>進度</h2>
+      <p>
+        1 / 23 完成。✅ 已完成　⚠ 在 TypeScript 裡已被語言功能取代或極少使用（仍會寫，但重點放在「為什麼消失」）。
+      </p>
+    </main>
+
+    <footer>
+      <p>
+        TypeScript + Vite ｜ CI 跑 typecheck、單元測試與 build ｜
+        <code>dev</code> 分支自動部署到 <code>/dev/</code> 預覽環境
+      </p>
+    </footer>
+
+    <script type="module" src="./src/dev-banner.ts"></script>
+  </body>
+</html>

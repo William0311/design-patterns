@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Command — 設計模式實踐</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="dev-banner">⚠ DEV 預覽環境 — 這不是正式站，內容來自 dev 分支</div>
+    <main>
+      <p><a href="./index.html">← 回目錄</a></p>
+
+      <span class="tag">行為型</span><span class="tag">GoF</span>
+      <h1>Command</h1>
+      <p class="lede">把「一個操作」包成物件，讓它可以被儲存、排隊、還原。</p>
+
+      <h2>問題情境</h2>
+      <p>
+        你在做一個繪圖板。使用者新增圖形、移動、改顏色，然後要求：<strong>我要能 undo</strong>。
+        而且不只一步，要能一路退回去，退錯了還要能 redo。
+      </p>
+
+      <h2>不用 pattern 會怎樣</h2>
+      <p>最直覺的做法是每次動作前把整份狀態存一份快照：</p>
+      <pre class="bad"><code>const snapshots: Drawing[] = [];
+
+function addShape(shape: Shape) {
+  snapshots.push(structuredClone(drawing)); // 存整份
+  drawing.add(shape);
+}
+
+function undo() {
+  const previous = snapshots.pop();
+  if (previous) drawing = previous;
+}</code></pre>
+      <p>這在圖形只有五個時完全能動。問題在後面：</p>
+      <ul>
+        <li>圖形變成幾千個時，<strong>每次移動一格就複製整份狀態</strong>，記憶體與延遲都撐不住</li>
+        <li>每個操作的 undo 邏輯散在各個函式裡，<strong>沒有統一介面</strong>——想加「把最近 5 步存成巨集」就得整個重寫</li>
+        <li>快照無法描述「發生了什麼」。UI 想顯示「復原：移動 #3」時，你手上只有一坨舊狀態</li>
+      </ul>
+
+      <h2>用 Command 之後</h2>
+      <p>每個操作變成一個物件，自己知道怎麼做、也自己記住怎麼還原：</p>
+      <pre class="good"><code>interface Command {
+  readonly label: string;
+  execute(): void;
+  undo(): void;
+}
+
+class MoveShape implements Command {
+  readonly label: string;
+  private previous: { x: number; y: number } | null = null;
+
+  constructor(
+    private readonly drawing: Drawing,
+    private readonly id: string,
+    private readonly to: { x: number; y: number },
+  ) {
+    this.label = `移動 ${id}`;
+  }
+
+  execute(): void {
+    const shape = this.drawing.get(this.id);
+    this.previous = { x: shape.x, y: shape.y }; // 只記兩個數字，不是整份狀態
+    shape.x = this.to.x;
+    shape.y = this.to.y;
+  }
+
+  undo(): void {
+    if (!this.previous) throw new Error('undo 在 execute 之前被呼叫');
+    const shape = this.drawing.get(this.id);
+    shape.x = this.previous.x;
+    shape.y = this.previous.y;
+  }
+}</code></pre>
+
+      <p>歷史紀錄退化成兩個堆疊，而且它完全不需要知道每個操作在做什麼：</p>
+      <pre class="good"><code>class History {
+  private readonly done: Command[] = [];
+  private readonly undone: Command[] = [];
+
+  run(command: Command): void {
+    command.execute();
+    this.done.push(command);
+    this.undone.length = 0; // 做了新動作，原本的「未來」就不存在了
+  }
+
+  undo(): Command | undefined {
+    const command = this.done.pop();
+    if (!command) return undefined;
+    command.undo();
+    this.undone.push(command);
+    return command;
+  }
+}</code></pre>
+
+      <div class="callout">
+        <p>
+          <strong>最容易寫錯的一行</strong>：<code>this.undone.length = 0</code>。
+          少了它，使用者「undo 兩步 → 做新動作 → redo」時會重演一個已經不存在的分支，狀態直接壞掉。
+          這條有對應的測試 <code>做了新動作之後，原本的 redo 分支被丟棄</code>。
+        </p>
+      </div>
+
+      <h3>另一個坑：previous 要在 execute 時捕捉，不是 constructor</h3>
+      <p>
+        如果在 constructor 就記下舊座標，同一個 command 被 redo 時會還原到一個過期的位置——
+        因為中間可能已經有別的操作動過它了。這也有測試蓋住。
+      </p>
+
+      <h2>實際跑跑看</h2>
+      <p>點畫布新增圖形，點圖形選取它，然後試著操作幾步再一路復原。支援 <code>Ctrl+Z</code> / <code>Ctrl+Y</code>。</p>
+
+      <div class="demo">
+        <div class="controls">
+          <button id="move" type="button">隨機移動</button>
+          <button id="recolor" type="button">換顏色</button>
+          <button id="clear" type="button">全部清除</button>
+          <button id="undo" type="button">↶ 復原</button>
+          <button id="redo" type="button">↷ 重做</button>
+        </div>
+        <div class="demo-body">
+          <div>
+            <div id="stage"></div>
+            <p id="hint"></p>
+          </div>
+          <div class="trail-panel">
+            <h3>操作軌跡</h3>
+            <ol id="trail"></ol>
+          </div>
+        </div>
+      </div>
+
+      <h2>什麼時候不要用</h2>
+      <ul>
+        <li>
+          <strong>狀態很小而且操作很少</strong>——三個欄位的表單要 undo，存整份快照就好。
+          Command 會讓你為了一個 undo 鍵多寫五個 class。
+        </li>
+        <li>
+          <strong>操作本質不可逆</strong>——寄出 email、扣款、刪除遠端檔案。
+          硬要塞 <code>undo()</code> 只會生出一個騙人的介面。這種情境要的是「補償交易」，不是 Command。
+        </li>
+        <li>
+          <strong>只需要單層 undo</strong>——存一個 <code>lastValue</code> 變數就結束了。
+        </li>
+        <li>
+          <strong>TypeScript 提醒</strong>：如果你的 command 沒有 undo、也不需要被儲存或排隊，
+          那它其實只是個函式。<code>() =&gt; void</code> 就夠了，不用開 class。
+          Command 的價值來自<strong>可還原</strong>與<strong>可保存</strong>，不是「把函式包成物件」本身。
+        </li>
+      </ul>
+
+      <h2>這個 pattern 的真實用途</h2>
+      <ul>
+        <li>編輯器的 undo/redo（VSCode、Figma、Photoshop）</li>
+        <li>任務佇列：command 可以被序列化後丟進 queue 延後執行</li>
+        <li>巨集／批次：把數個 command 組成一個複合 command</li>
+        <li>資料庫的 transaction log 與 event sourcing 是同一個想法的放大版</li>
+      </ul>
+    </main>
+
+    <footer>
+      <p>原始碼：<code>src/patterns/command/</code>　測試：<code>command.test.ts</code>（12 項）</p>
+    </footer>
+
+    <script type="module" src="./src/dev-banner.ts"></script>
+    <script type="module" src="./src/patterns/command/demo.ts"></script>
+  </body>
+</html>

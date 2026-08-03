@@ -1,0 +1,113 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# Least privilege by default; each job widens only what it needs
+permissions:
+  contents: read
+
+# Queue deploys instead of cancelling: a dev push must never interrupt a
+# half-finished production deploy and leave the live site inconsistent.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI - 檢查
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: CD - 部署到 GitHub Pages
+    needs: ci
+    # PRs run CI only; deploying happens on main and dev
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Only this job may publish; required by actions/deploy-pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Pages replaces the entire site on every deploy, so both environments are
+      # rebuilt together regardless of which branch triggered this run.
+      # Deploying only the triggering branch would wipe the other one.
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: src-main
+
+      - name: Checkout dev
+        uses: actions/checkout@v7
+        with:
+          ref: dev
+          path: src-dev
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src-main/package-lock.json
+
+      - name: Build both environments
+        run: |
+          set -euo pipefail
+          for branch in main dev; do
+            echo "::group::build $branch"
+            npm ci --prefix "src-$branch"
+            npm run build --prefix "src-$branch"
+            echo "::endgroup::"
+          done
+
+          mkdir -p _site
+          cp -r src-main/dist/. _site/
+          mkdir -p _site/dev
+          cp -r src-dev/dist/. _site/dev/
+
+          echo "--- 即將部署的內容 ---"
+          find _site -type f | sort
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

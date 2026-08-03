@@ -1,0 +1,25 @@
+# --- Node ---
+node_modules/
+dist/
+*.log
+npm-debug.log*
+
+# --- Vite ---
+.vite/
+*.local
+
+# --- OS ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Editors ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
