@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Strategy — 設計模式實踐</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="dev-banner">⚠ DEV 預覽環境 — 這不是正式站，內容來自 dev 分支</div>
+    <main>
+      <p><a href="./index.html">← 回目錄</a></p>
+
+      <span class="tag">行為型</span><span class="tag">GoF</span>
+      <h1>Strategy</h1>
+      <p class="lede">把「會變的做法」抽成可替換的物件，讓「不變的流程」對它一無所知。</p>
+
+      <h2>問題情境</h2>
+      <p>
+        你在做一個 RAG 助手的 A/B 介入實驗：每一次提問會被隨機分配一個<strong>呈現條件</strong>——
+        純回答（對照組）、附不確實性提示（「檢索分數偏低，僅供參考」）、或附引用來源。
+        除了畫面顯示，每一題還要寫進實驗 log：<strong>受試者這次實際看到了什麼</strong>。
+        這行 log 就是實驗的自變數紀錄，記錯等於整批資料作廢。
+      </p>
+
+      <h2>不用 pattern 會怎樣</h2>
+      <p>最直覺的寫法：一個 function、一串 if/else。而且注意——同一串 if/else 出現了兩次：</p>
+      <pre class="bad"><code>function renderAnswer(answer: Answer, condition: Condition): string {
+  if (condition === 'plain') return answer.text;
+  if (condition === 'uncertainty')
+    return `${answer.text}\n⚠ 檢索分數 ${answer.ragScore}，僅供參考`;
+  if (condition === 'citation')
+    return `${answer.text}\n📄 出處：${answer.sources.join('、')}`;
+  throw new Error(`unknown condition: ${condition}`);
+}
+
+function logExposure(answer: Answer, condition: Condition): string {
+  if (condition === 'plain') return 'shown=answer_only';
+  if (condition === 'uncertainty') /* ...同一串 if/else 再來一次... */
+}</code></pre>
+      <p>
+        然後實驗設計改了：「加一個條件 D，不確實性和引用<strong>同時</strong>顯示」。
+        你改了 <code>renderAnswer</code>，忘了 <code>logExposure</code>。結果：
+      </p>
+      <ul>
+        <li>寫程式當下不會報錯、編譯也不會——要等到<strong>實驗跑到一半</strong>，第一個被分到條件 D 的受試者出現，才在 log 那行爆炸</li>
+        <li>更陰險的變形：如果當初手軟寫成「不認得的條件就當 plain 記」，程式不爆炸，
+          畫面給受試者看條件 D、log 卻記成 plain——<strong>默默記錯兩個月，分析時才發現自變數全是假的</strong></li>
+        <li>「條件 D 是什麼樣子」這件事被拆散在 N 個地方，每次變動都要記得全改到，沒有任何機制提醒你</li>
+      </ul>
+
+      <h2>用 Strategy 之後</h2>
+      <p>一個條件＝一個物件。它的顯示方式和 log 方式住在同一個屋簷下：</p>
+      <pre class="good"><code>interface PresentationStrategy {
+  readonly id: string;          // 寫進 log 的條件代號
+  render(answer: Answer): string;
+  logLine(answer: Answer): string;
+}
+
+const withCitation: PresentationStrategy = {
+  id: 'citation',
+  render:  (a) => `${a.text}\n📄 出處：${a.sources.join('、')}`,
+  logLine: (a) => `shown=answer+citation n_sources=${a.sources.length}`,
+};</code></pre>
+      <p>主流程只認識介面，不認識任何具體條件——所以新條件出現時它一行都不用改：</p>
+      <pre class="good"><code>class ExperimentPresenter {
+  present(answer: Answer, strategy: PresentationStrategy): string {
+    // 顯示與 log 出自同一個物件，想讓它們對不上都難
+    this.exposures.push(`condition=${strategy.id} ${strategy.logLine(answer)}`);
+    return strategy.render(answer);
+  }
+}</code></pre>
+
+      <div class="callout">
+        <p>
+          <strong>重點不是消滅 if/else，而是消滅「散落」。</strong>
+          加條件 D＝新增一個物件，舊程式碼零修改；忘記改另一半？不可能，因為根本沒有另一半。
+          對應的測試就叫 <code>加條件 D 不需要修改任何既有程式碼</code>。
+        </p>
+      </div>
+
+      <h2>實際跑跑看</h2>
+      <p>
+        點條件按鈕（或讓系統隨機分配）回答下一題，左邊是受試者看到的畫面、右邊是實驗 log。
+        注意兩件事：①不管怎麼按，log 的條件永遠和畫面一致；②「條件 combo」是事後加的，
+        它定義在 demo 檔裡，<code>strategy.ts</code> 完全沒動過。
+      </p>
+
+      <div class="demo">
+        <div class="controls" id="condition-buttons"></div>
+        <div class="controls">
+          <button id="random-assign" type="button">🎲 隨機分配條件（模擬實驗）</button>
+        </div>
+        <div class="demo-body strategy-demo">
+          <div>
+            <p id="question">按任一個條件開始第一題</p>
+            <div id="answer-card">（AI 回答會顯示在這裡）</div>
+          </div>
+          <div class="trail-panel">
+            <h3>實驗 log</h3>
+            <ol id="exposure-log"></ol>
+          </div>
+        </div>
+      </div>
+
+      <h2>TypeScript 的現實：多數時候你只需要傳一個函式</h2>
+      <p>
+        GoF 時代的 Strategy 要開 class，是因為當年的語言不能把函式當值傳遞。
+        TS 可以，所以「排序規則可替換」這種<strong>單一行為</strong>的 strategy，傳個函式就好：
+      </p>
+      <pre><code>// 這就是 Strategy，不用 class：
+answers.sort((a, b) => b.ragScore - a.ragScore);</code></pre>
+      <p>什麼時候仍值得像本頁一樣開物件？兩個訊號同時出現時：</p>
+      <ul>
+        <li><strong>好幾個行為必須一起換</strong>——render 和 logLine 是同一個條件的兩面，拆成兩個獨立函式傳，就回到「可能對不上」的老問題</li>
+        <li><strong>策略需要身分</strong>——<code>id</code> 要寫進 log、進資料庫、給統計腳本分組。一個匿名 lambda 沒有名字</li>
+      </ul>
+
+      <h2>什麼時候不要用</h2>
+      <ul>
+        <li><strong>做法只有一種，也看不到第二種的影子</strong>——先寫 if 都嫌多。等第二種真的出現再抽</li>
+        <li><strong>分支之間要共享大量狀態</strong>——硬拆成 strategy 會逼你把一堆參數傳來傳去，可能 State 或乾脆留著 if/else 更誠實</li>
+        <li><strong>單一函式就能表達</strong>——如上一節，傳函式即可，不用儀式感</li>
+      </ul>
+
+      <h2>這個 pattern 的真實用途</h2>
+      <ul>
+        <li>A/B 測試與實驗平台的條件分配（本頁場景，取自真實研究計畫的計測設計）</li>
+        <li><code>Array.prototype.sort(comparator)</code>——標準函式庫內建的 Strategy</li>
+        <li>運費／定價／稅率規則：不同國家一個 strategy，新市場＝新檔案</li>
+        <li>壓縮、快取淘汰（LRU/LFU）、重試策略（exponential backoff）等演算法族</li>
+        <li>Passport.js 的驗證方式就叫 strategy——Google 登入、密碼登入各一個</li>
+      </ul>
+    </main>
+
+    <footer>
+      <p>原始碼：<code>src/patterns/strategy/</code>　測試：<code>strategy.test.ts</code>（5 項）</p>
+    </footer>
+
+    <script type="module" src="./src/dev-banner.ts"></script>
+    <script type="module" src="./src/patterns/strategy/demo.ts"></script>
+  </body>
+</html>

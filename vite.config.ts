@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, 'index.html'),
         command: resolve(__dirname, 'command.html'),
+        strategy: resolve(__dirname, 'strategy.html'),
       },
     },
   },
