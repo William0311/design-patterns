@@ -15,7 +15,7 @@ GoF 23 個設計模式的 TypeScript 實作，附可互動的瀏覽器 demo 與�
 
 ## 進度
 
-1 / 23。已完成：**Command**（含繪圖板 undo/redo demo）。
+2 / 23。已完成：**Command**（繪圖板 undo/redo demo）、**Strategy**（RAG 助手 A/B 實驗條件切換 demo）。
 
 ## 本機開發
 
@@ -47,6 +47,11 @@ src/
   patterns/command/
     command.ts                 pattern 本體
     command.test.ts            單元測試
+    demo.ts                    瀏覽器 demo 的 DOM 接線
+  patterns/strategy/
+    naive.ts                   刻意保留的 if/else 爛版本（頁面的 before 範例）
+    strategy.ts                pattern 本體
+    strategy.test.ts           單元測試
     demo.ts                    瀏覽器 demo 的 DOM 接線
 ```
 
